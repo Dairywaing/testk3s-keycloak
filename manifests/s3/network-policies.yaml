@@ -1,0 +1,38 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: s3
+  labels:
+    app.kubernetes.io/part-of: keycloak-platform
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-object-store-clients
+  namespace: s3
+  labels:
+    app.kubernetes.io/part-of: keycloak-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: rustfs
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: keycloak
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: s3
+      ports:
+        - port: 9000
+          protocol: TCP
+        - port: 9001
+          protocol: TCP

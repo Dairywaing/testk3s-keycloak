@@ -1,0 +1,119 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rustfs-console
+  namespace: s3
+  labels:
+    app.kubernetes.io/name: rustfs
+  annotations:
+    cert-manager.io/cluster-issuer: selfsigned-bootstrap
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - s3.test.local
+      secretName: rustfs-console-tls
+  rules:
+    - host: s3.test.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rustfs-svc
+                port:
+                  name: console
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rustfs-create-bucket
+  namespace: s3
+  labels:
+    app.kubernetes.io/name: rustfs
+    app.kubernetes.io/component: bootstrap
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rustfs
+        app.kubernetes.io/component: bootstrap
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: create-bucket
+          image: amazon/aws-cli:2.39.3
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: S3_ENDPOINT
+              value: http://rustfs-svc.s3.svc.cluster.local:9000
+            - name: S3_BUCKET
+              value: keycloak-pg
+            - name: AWS_REGION
+              value: us-east-1
+            - name: AWS_DEFAULT_REGION
+              value: us-east-1
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-s3
+                  key: access-key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-s3
+                  key: secret-key
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              s3() { aws --endpoint-url "${S3_ENDPOINT}" "$@"; }
+
+              for i in $(seq 1 60); do
+                if s3 s3api list-buckets >/dev/null 2>&1; then
+                  echo "connected to ${S3_ENDPOINT}"
+                  break
+                fi
+                echo "waiting for ${S3_ENDPOINT} (${i}/60)"
+                sleep 5
+              done
+
+              if s3 s3api head-bucket --bucket "${S3_BUCKET}" 2>/dev/null; then
+                echo "bucket ${S3_BUCKET} already exists"
+              else
+                s3 s3api create-bucket --bucket "${S3_BUCKET}"
+                echo "bucket ${S3_BUCKET} created"
+              fi
+
+              s3 s3api put-bucket-versioning \
+                --bucket "${S3_BUCKET}" \
+                --versioning-configuration Status=Enabled
+
+              s3 s3api put-public-access-block \
+                --bucket "${S3_BUCKET}" \
+                --public-access-block-configuration \
+                "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true" \
+                || echo "public access block not supported by this endpoint (continuing)"
+
+              s3 s3api list-objects-v2 --bucket "${S3_BUCKET}" >/dev/null
+              echo "bucket ${S3_BUCKET} is ready"
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

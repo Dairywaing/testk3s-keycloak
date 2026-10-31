@@ -1,0 +1,51 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cnpg-plugin-barman-cloud
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://cloudnative-pg.github.io/charts
+    chart: plugin-barman-cloud
+    targetRevision: 0.8.1
+    helm:
+      releaseName: plugin-barman-cloud
+      values: |
+        crds:
+          create: true
+        replicaCount: 1
+        logLevel: info
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        certificate:
+          createIssuer: true
+          createClientCertificate: true
+          createServerCertificate: true
+          duration: 2160h
+          renewBefore: 360h
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cnpg-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m

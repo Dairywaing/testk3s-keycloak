@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: s3
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-9"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Dairywaing/testk3s-keycloak.git
+    targetRevision: main
+    path: manifests/s3
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: s3
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      name: rustfs
+      jsonPointers:
+        - /spec/volumeClaimTemplates
+        - /spec/replicas
+        - /spec/persistentVolumeClaimRetentionPolicy

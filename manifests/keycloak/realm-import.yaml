@@ -1,0 +1,141 @@
+apiVersion: k8s.keycloak.org/v2beta1
+kind: KeycloakRealmImport
+metadata:
+  name: platform
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/part-of: keycloak-platform
+spec:
+  keycloakCRName: keycloak
+  realm:
+    realm: platform
+    id: platform
+    enabled: true
+    displayName: Platform
+    sslRequired: external
+    accessTokenLifespan: 1800
+    ssoSessionIdleTimeout: 1800
+    ssoSessionMaxLifespan: 36000
+    bruteForceProtected: true
+    permanentLockout: false
+    failureFactor: 10
+    waitIncrementSeconds: 60
+    maxFailureWaitSeconds: 900
+    minimumQuickLoginWaitSeconds: 60
+    quickLoginCheckMilliSeconds: 1000
+    maxDeltaTimeSeconds: 43200
+    registrationAllowed: false
+    resetPasswordAllowed: true
+    rememberMe: true
+    verifyEmail: true
+    loginWithEmailAllowed: true
+    duplicateEmailsAllowed: false
+    defaultSignatureAlgorithm: RS256
+    passwordPolicy: >-
+      length(14) and lowerCase(1) and upperCase(1) and digits(1) and
+      notUsername(undefined) and passwordHistory(5)
+
+    roles:
+      realm:
+        - name: platform-admin
+          description: Full administrative access to the platform realm.
+          composite: false
+          clientRole: false
+        - name: platform-user
+          description: Standard authenticated end user.
+          composite: false
+          clientRole: false
+
+    groups:
+      - name: platform
+        realmRoles:
+          - platform-user
+        subGroups:
+          - name: administrators
+            realmRoles:
+              - platform-admin
+
+    clients:
+      - clientId: platform-web
+        name: Platform Web UI
+        enabled: true
+        protocol: openid-connect
+        publicClient: true
+        standardFlowEnabled: true
+        implicitFlowEnabled: false
+        directAccessGrantsEnabled: false
+        serviceAccountsEnabled: false
+        rootUrl: https://app.test.local
+        baseUrl: /
+        redirectUris:
+          - https://app.test.local/*
+        webOrigins:
+          - https://app.test.local
+        attributes:
+          pkce.code.challenge.method: S256
+        protocolMappers:
+          - name: realm-roles
+            protocol: openid-connect
+            protocolMapper: oidc-usermodel-realm-role-mapper
+            consentRequired: false
+            config:
+              claim.name: realm_access.roles
+              jsonType.label: String
+              multivalued: "true"
+              id.token.claim: "true"
+              access.token.claim: "true"
+              userinfo.token.claim: "true"
+
+      - clientId: platform-backend
+        name: Platform Backend
+        enabled: true
+        protocol: openid-connect
+        publicClient: false
+        secret: CHANGE_ME_FROM_A_SECRET
+        standardFlowEnabled: false
+        implicitFlowEnabled: false
+        directAccessGrantsEnabled: false
+        serviceAccountsEnabled: true
+        protocolMappers:
+          - name: audience
+            protocol: openid-connect
+            protocolMapper: oidc-audience-mapper
+            consentRequired: false
+            config:
+              included.client.audience: platform-backend
+              access.token.claim: "true"
+
+    browserFlow: browser
+    registrationFlow: registration
+    directGrantFlow: direct grant
+    resetCredentialsFlow: reset credentials
+    clientAuthenticationFlow: clients
+    dockerAuthenticationFlow: docker auth
+    otpPolicyType: totp
+    otpPolicyAlgorithm: HmacSHA256
+    otpPolicyDigits: 6
+    otpPolicyPeriod: 30
+    otpPolicyLookAheadWindow: 1
+    requiredActions:
+      - alias: CONFIGURE_TOTP
+        name: Configure OTP
+        providerId: CONFIGURE_TOTP
+        enabled: true
+        defaultAction: false
+        priority: 10
+        config: {}
+      - alias: UPDATE_PASSWORD
+        name: Update Password
+        providerId: UPDATE_PASSWORD
+        enabled: true
+        defaultAction: false
+        priority: 30
+        config: {}
+      - alias: VERIFY_EMAIL
+        name: Verify Email
+        providerId: VERIFY_EMAIL
+        enabled: true
+        defaultAction: false
+        priority: 50
+        config: {}

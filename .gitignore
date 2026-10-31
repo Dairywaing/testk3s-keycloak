@@ -1,0 +1,31 @@
+# Секреты никогда не коммитятся - создаются вручную (README, шаг 4).
+*.secret.yaml
+*credentials*.yaml
+!**/*.example.yaml
+sops-age.txt
+age.key
+
+# Local / editor
+.idea/
+.vscode/
+*.swp
+*~
+
+# Obsidian vault metadata, if the repo is opened as a vault
+.obsidian/
+.trash/
+
+# Generated / temporary
+/tmp/
+/out/
+/.cache/
+*.tgz
+*.rendered.yaml
+
+# Keycloak realm exports — лежат локально в realms/, в git не попадают
+realms/*.json
+!realms/.gitkeep
+platform-realm.json
+platform-users-*.json
+*-realm.json
+realm-export*.json

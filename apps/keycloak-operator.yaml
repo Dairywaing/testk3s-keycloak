@@ -1,0 +1,49 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keycloak-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: quay.io/keycloak
+    chart: keycloak-operator-helm
+    targetRevision: 26.8.1
+    helm:
+      releaseName: keycloak-operator
+      values: |
+        crds:
+          enabled: true
+        operator:
+          replicas: 1
+          envs:
+            QUARKUS_OPERATOR_SDK_CONTROLLERS_KEYCLOAKCONTROLLER_NAMESPACES: JOSDK_ALL_NAMESPACES
+            QUARKUS_OPERATOR_SDK_CONTROLLERS_KEYCLOAKREALMIMPORTCONTROLLER_NAMESPACES: JOSDK_ALL_NAMESPACES
+            RELATED_IMAGE_KEYCLOAK: quay.io/keycloak/keycloak:26.8.1
+          resources:
+            requests:
+              cpu: 300m
+              memory: 450Mi
+            limits:
+              cpu: 700m
+              memory: 450Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: keycloak
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m

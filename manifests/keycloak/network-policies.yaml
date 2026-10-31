@@ -1,0 +1,221 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/part-of: keycloak-platform
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/part-of: keycloak-platform
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+        - port: 443
+          protocol: TCP
+        - port: 6443
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-keycloak-ingress
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/part-of: keycloak-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: keycloak
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 8080
+        - port: 8443
+          protocol: TCP
+        - port: 9000
+          protocol: TCP
+    - from:
+        - podSelector: {}
+      ports:
+        - port: 8080
+        - port: 8443
+          protocol: TCP
+        - port: 9000
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-keycloak-to-pooler
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/part-of: keycloak-platform
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - keycloak
+          - keycloak-realm-import
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/poolerName: keycloak-db-pooler-rw
+      ports:
+        - port: 5432
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-pooler-ingress-from-keycloak
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/part-of: keycloak-platform
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/poolerName: keycloak-db-pooler-rw
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - keycloak
+                  - keycloak-realm-import
+      ports:
+        - port: 5432
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-pooler-to-postgres
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/part-of: keycloak-platform
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/poolerName: keycloak-db-pooler-rw
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: keycloak-db
+      ports:
+        - port: 5432
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-postgres-to-object-store
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/part-of: keycloak-platform
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: keycloak-db
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: s3
+      ports:
+        - port: 9000
+          protocol: TCP
+        - port: 443
+          protocol: TCP
+    - ports:
+        - port: 443
+          protocol: TCP
+        - port: 9000
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: keycloak-db
+      ports:
+        - port: 5432
+          protocol: TCP
+        - port: 8000
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cnpg-system
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/part-of: keycloak-platform
+spec:
+  podSelector:
+    matchExpressions:
+      - key: cnpg.io/cluster
+        operator: Exists
+      - key: cnpg.io/poolerName
+        operator: DoesNotExist
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg-system
+      ports:
+        - port: 5432
+          protocol: TCP
+        - port: 8000
+          protocol: TCP
+        - port: 9090
+          protocol: TCP
+        - port: 9187
+          protocol: TCP
+    - from:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: keycloak-db
+        - podSelector:
+            matchLabels:
+              cnpg.io/poolerName: keycloak-db-pooler-rw
+      ports:
+        - port: 5432
+          protocol: TCP
+        - port: 8000
+          protocol: TCP

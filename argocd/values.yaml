@@ -1,0 +1,86 @@
+
+global:
+  domain: ${ARGOCD_HOSTNAME}
+
+crds:
+  install: true
+  keep: true
+
+configs:
+  params:
+    server.insecure: true
+  cm:
+    application.resourceTrackingMethod: annotation
+    timeout.reconciliation: 180s
+  rbac:
+    policy.default: role:readonly
+    policy.csv: |
+      g, argocd-admins, role:admin
+
+dex:
+  enabled: false
+
+applicationSet:
+  enabled: true
+  replicas: 1
+
+controller:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+
+server:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hostname: ${ARGOCD_HOSTNAME}
+    annotations:
+      cert-manager.io/cluster-issuer: ${ACME_ISSUER}
+    tls: true
+  service:
+    type: ClusterIP
+
+repoServer:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 768Mi
+  env:
+    - name: ARGOCD_EXEC_TIMEOUT
+      value: 180s
+
+redis:
+  enabled: true
+  image:
+    repository: mirror.gcr.io/library/redis
+    tag: 8.6.4-alpine
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+redis-ha:
+  enabled: false
+
+notifications:
+  enabled: false

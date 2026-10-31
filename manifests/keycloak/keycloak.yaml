@@ -1,0 +1,66 @@
+apiVersion: k8s.keycloak.org/v2beta1
+kind: Keycloak
+metadata:
+  name: keycloak
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/part-of: keycloak-platform
+spec:
+  instances: 1
+
+  image: quay.io/keycloak/keycloak:26.8.1
+
+  startOptimized: false
+
+  db:
+    vendor: postgres
+    host: keycloak-db-pooler-rw.keycloak.svc.cluster.local
+    port: 5432
+    database: keycloak
+    usernameSecret:
+      name: keycloak-db-app
+      key: username
+    passwordSecret:
+      name: keycloak-db-app
+      key: password
+    poolInitialSize: 5
+    poolMinSize: 5
+    poolMaxSize: 20
+
+  transaction:
+    xaEnabled: false
+
+  hostname:
+    hostname: https://sso.test.local
+    strict: true
+  http:
+    httpEnabled: true
+  proxy:
+    headers: xforwarded
+
+  ingress:
+    enabled: true
+    className: traefik
+    tlsSecret: keycloak-tls
+
+  bootstrapAdmin:
+    user:
+      secret: keycloak-bootstrap-admin
+
+  additionalOptions:
+    - name: metrics-enabled
+      value: "true"
+    - name: log-level
+      value: info
+
+  networkPolicy:
+    enabled: true
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1024Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi

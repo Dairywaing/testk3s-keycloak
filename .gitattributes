@@ -1,0 +1,8 @@
+* text=auto eol=lf
+
+*.yaml  text eol=lf diff=yaml
+*.yml   text eol=lf diff=yaml
+
+*.png   binary
+*.jpg   binary
+*.tgz   binary

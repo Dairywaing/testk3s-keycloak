@@ -1,0 +1,27 @@
+{
+  "repo": "Dairywaing/testk3s-keycloak",
+  "revision": "main",
+  "hostnames": {
+    "keycloak": "sso.test.local",
+    "argocd": "argocd.test.local",
+    "s3_console": "s3.test.local",
+    "app": "app.test.local"
+  },
+  "issuer": "selfsigned-bootstrap",
+  "versions": {
+    "k3s": "v1.36.5+k3s1",
+    "argocd_chart": "10.11.6",
+    "cert_manager": "v1.21.3",
+    "cnpg": "0.29.1",
+    "barman_plugin": "0.8.1",
+    "keycloak": "26.8.1",
+    "rustfs": "1.0.4"
+  },
+  "namespaces": ["argocd", "cert-manager", "cnpg-system", "keycloak", "s3"],
+  "notes": [
+    "Profile baked into the manifests: single-node, edge TLS (selfsigned-bootstrap), *.test.local hosts.",
+    "Secrets are never committed - create them before the first sync (README step 5).",
+    "To go to production: 3 postgres instances, 2 keycloak/pooler instances, letsencrypt-* issuer,",
+    "re-encrypt TLS (Keycloak spec.http.tlsSecret + httpEnabled=false, drop 8080 from the NetworkPolicy)."
+  ]
+}

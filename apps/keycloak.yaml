@@ -1,0 +1,69 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keycloak
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Dairywaing/testk3s-keycloak.git
+    targetRevision: main
+    path: manifests/keycloak
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: keycloak
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 20
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: k8s.keycloak.org
+      kind: Keycloak
+      jsonPointers:
+        - /spec/ingress/annotations
+        - /spec/http/httpPort
+        - /spec/http/httpsPort
+        - /spec/unsupported
+    - group: postgresql.cnpg.io
+      kind: Cluster
+      jsonPointers:
+        - /spec/affinity/podAntiAffinityType
+        - /spec/postgresql/synchronous
+        - /spec/backup/target
+        - /spec/plugins/0/enabled
+        - /spec/minSyncReplicas
+        - /spec/maxSyncReplicas
+        - /spec/primaryUpdateMethod
+        - /spec/primaryUpdateStrategy
+        - /spec/postgresGID
+        - /spec/postgresUID
+        - /spec/enableSuperuserAccess
+        - /spec/postgresql/parameters
+        - /spec/postgresql/syncReplicaElectionConstraint
+        - /spec/monitoring
+        - /spec/probes
+    - group: apps
+      kind: StatefulSet
+      name: rustfs
+      jsonPointers:
+        - /spec/volumeClaimTemplates
+        - /spec/replicas
+        - /spec/persistentVolumeClaimRetentionPolicy
+    - group: postgresql.cnpg.io
+      kind: Pooler
+      jsonPointers:
+        - /spec/pgbouncer/parameters

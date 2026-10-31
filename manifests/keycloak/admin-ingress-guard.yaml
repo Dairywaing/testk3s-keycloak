@@ -1,0 +1,36 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: keycloak-admin-allowlist
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/component: ingress-guard
+    app.kubernetes.io/part-of: keycloak-platform
+spec:
+  ipAllowList:
+    sourceRange:
+      - 192.0.2.0/24
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: keycloak-admin
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/component: ingress-guard
+    app.kubernetes.io/part-of: keycloak-platform
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`sso.test.local`) && PathPrefix(`/admin`)
+      kind: Rule
+      middlewares:
+        - name: keycloak-admin-allowlist
+      services:
+        - name: keycloak-service
+          port: 8080
+  tls:
+    secretName: keycloak-tls

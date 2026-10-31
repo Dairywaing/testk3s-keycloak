@@ -1,0 +1,41 @@
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: keycloak-db-store
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/name: keycloak-db
+    app.kubernetes.io/component: backup
+    app.kubernetes.io/part-of: keycloak-platform
+spec:
+  configuration:
+    destinationPath: s3://keycloak-pg/
+    endpointURL: http://rustfs-svc.s3.svc.cluster.local:9000
+
+    s3Credentials:
+      accessKeyId:
+        name: keycloak-db-s3
+        key: access-key
+      secretAccessKey:
+        name: keycloak-db-s3
+        key: secret-key
+
+    wal:
+      compression: gzip
+      maxParallel: 4
+
+    data:
+      compression: gzip
+      jobs: 2
+
+  retentionPolicy: "30d"
+
+  instanceSidecarConfiguration:
+    retentionPolicyIntervalSeconds: 1800
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi

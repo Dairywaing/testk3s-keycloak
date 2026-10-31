@@ -1,0 +1,81 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: keycloak-db
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/name: keycloak-db
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: keycloak-platform
+spec:
+  instances: 1
+
+  imageCatalogRef:
+    apiGroup: postgresql.cnpg.io
+    kind: ClusterImageCatalog
+    name: postgresql-minimal-trixie
+    major: 18
+
+  imagePullPolicy: IfNotPresent
+
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      effective_cache_size: "768MB"
+      work_mem: "8MB"
+      maintenance_work_mem: "128MB"
+      wal_compression: "on"
+      log_min_duration_statement: "1000"
+
+  bootstrap:
+    initdb:
+      database: keycloak
+      owner: keycloak
+      encoding: UTF8
+      localeCollate: C
+      localeCType: C
+      dataChecksums: true
+      secret:
+        name: keycloak-db-app
+
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: keycloak-db-store
+
+  storage:
+    size: 10Gi
+    storageClass: local-path
+
+  walStorage:
+    size: 2Gi
+    storageClass: local-path
+
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+    podAntiAffinityType: preferred
+  failoverDelay: 0
+  startDelay: 30
+  smartShutdownTimeout: 60
+  switchoverDelay: 3600
+
+  enablePDB: true
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+  backup:
+    target: primary
+
+  monitoring:
+    enablePodMonitor: false
+
+  logLevel: info

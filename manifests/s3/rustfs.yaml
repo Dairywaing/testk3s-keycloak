@@ -1,0 +1,147 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: s3
+  labels:
+    app.kubernetes.io/name: rustfs
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rustfs
+  namespace: s3
+  labels:
+    app.kubernetes.io/name: rustfs
+    app.kubernetes.io/component: object-store
+    app.kubernetes.io/part-of: keycloak-platform
+spec:
+  serviceName: rustfs-svc
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rustfs
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rustfs
+        app.kubernetes.io/component: object-store
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: rustfs
+          image: rustfs/rustfs:1.0.4
+          imagePullPolicy: IfNotPresent
+          args:
+            - /data
+          env:
+            - name: RUSTFS_ADDRESS
+              value: ":9000"
+            - name: RUSTFS_CONSOLE_ADDRESS
+              value: ":9001"
+            - name: RUSTFS_CONSOLE_ENABLE
+              value: "true"
+            - name: RUSTFS_OBS_LOGGER_LEVEL
+              value: error
+            - name: RUSTFS_OBS_LOG_DIRECTORY
+              value: /var/log/rustfs/
+            - name: RUSTFS_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rustfs-credentials
+                  key: access-key
+            - name: RUSTFS_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rustfs-credentials
+                  key: secret-key
+          ports:
+            - name: s3
+              containerPort: 9000
+              protocol: TCP
+            - name: console
+              containerPort: 9001
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /health
+              port: s3
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: s3
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: s3
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: logs
+              mountPath: /var/log/rustfs
+      terminationGracePeriodSeconds: 30
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 5Gi
+    - metadata:
+        name: logs
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rustfs-svc
+  namespace: s3
+  labels:
+    app.kubernetes.io/name: rustfs
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: rustfs
+  ports:
+    - name: s3
+      port: 9000
+      targetPort: s3
+      protocol: TCP
+    - name: console
+      port: 9001
+      targetPort: console
+      protocol: TCP
